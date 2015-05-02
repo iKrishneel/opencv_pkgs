@@ -4,8 +4,8 @@ project( libsvm )
 find_package( OpenCV REQUIRED )
 include_directories ("${PROJECT_SOURCE_DIR}")
 
-set(HEADER_FILES main.cpp
-  svm.cpp
+set(HEADER_FILES src/main.cpp
+  src/svm.cpp
   ${PROJECT_SOURCE_DIR}/include/svm.h)
 
 add_executable(main ${HEADER_FILES})
