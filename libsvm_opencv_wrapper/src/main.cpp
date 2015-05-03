@@ -1,3 +1,8 @@
+// Copyright (C) 2015 by KRISHNEEL CHAUDHARY
+// Function to wrap OpenCV cv::Mat type features to LibSVM type
+// "svm_problem"
+// The example is taken from
+// http://docs.opencv.org/doc/tutorials/ml/introduction_to_svm/introduction_to_svm.html
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -36,12 +41,11 @@ struct svm_problem libSVMWrapper(
 
 int main(int argc, char *argv[]) {
 
-    float labels[4] = {1.0, -1.0, -1.0, -1.0};
+    float labels[4] = {1.0, 1.0, -1.0, -1.0};
     cv::Mat labelsMat(4, 1, CV_32FC1, labels);
     float trainingData[4][2] = {{501, 10}, {255, 10},
                                 {501, 255}, {10, 501}};
     cv::Mat trainingDataMat(4, 2, CV_32FC1, trainingData);
-
     
     svm_parameter param;
     param.svm_type = C_SVC;
@@ -55,11 +59,11 @@ int main(int argc, char *argv[]) {
     param.eps = 1e-6;
     param.p = 0.1;
     param.shrinking = 1;
-    param.probability = 0;
+    param.probability = 1;
     param.nr_weight = 0;
     param.weight_label = NULL;
     param.weight = NULL;
-
+    
     svm_problem svm_prob_vector = libSVMWrapper(
        trainingDataMat, labelsMat, param);
     struct svm_model *model = new svm_model;
@@ -69,6 +73,7 @@ int main(int argc, char *argv[]) {
        model = svm_train(&svm_prob_vector, &param);
     }
 
+    bool is_compute_probability = true;
     std::string model_file_name = "svm";
     bool save_model = true;
     if (save_model) {
@@ -79,6 +84,13 @@ int main(int argc, char *argv[]) {
           std::cout << e.what() << std::endl;
        }
     }
+
+
+    bool is_probability_model = svm_check_probability_model(model);
+    int svm_type = svm_get_svm_type(model);
+    int nr_class = svm_get_nr_class(model);  // number of classes
+    double *prob_estimates = new double[nr_class];
+
     cv::Vec3b green(0, 255, 0);
     cv::Vec3b blue(255, 0, 0);
     int width = 512, height = 512;
@@ -86,25 +98,37 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < image.rows; ++i) {
        for (int j = 0; j < image.cols; ++j) {
           cv::Mat sampleMat = (cv::Mat_<float>(1, 2) << j, i);
-
+              
           int dims = sampleMat.cols;
           svm_node* test_pt = new svm_node[dims];
           for (int k = 0; k < dims; k++) {
              test_pt[k].index = k + 1;
-             test_pt[k].value = static_cast<double>(sampleMat.at<float>(0, k)); 
+             test_pt[k].value = static_cast<double>(sampleMat.at<float>(0, k));
           }
           test_pt[dims].index = -1;
-          float response = svm_predict(model, test_pt);
+
+          float response = 0.0f;
+          if (is_probability_model && is_compute_probability) {
+             response = svm_predict_probability(model, test_pt, prob_estimates);
+          } else {
+             response = svm_predict(model, test_pt);
+          }
           
-          if (response == 1)
+          /*
+          std::cout << "Predict: " << prob << std::endl;
+          for (int y = 0; y < nr_class; y++) {
+             std::cout << prob_estimates[y] << "  ";
+          }std::cout <<  std::endl;
+          */
+          
+          if (prob_estimates[0] > 0.5 || response == 1) {
              image.at<cv::Vec3b>(i, j)  = green;
-          else if (response == -1)
+          } else if (prob_estimates[1] >= 0.5 || response == -1) {
              image.at<cv::Vec3b>(i, j)  = blue;
+          }
        }
     }
-
     cv::imshow("image", image);
     cv::waitKey(0);
-    
     return 0;
 }
