@@ -10,8 +10,8 @@
 
 using namespace cv;
 
-#include "connected.h"
-#include "contour_thinning.h"
+#include "include/connected.h"
+#include "include/contour_thinning.h"
 
 
 /**
